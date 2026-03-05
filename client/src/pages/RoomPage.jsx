@@ -25,7 +25,7 @@ export default function RoomPage() {
   const { roomId } = useParams();
   const navigate = useNavigate();
   const initialized = useRef(false);
-  const [chatOpen, setChatOpen] = useState(true);
+  const [chatOpen, setChatOpen] = useState(false);
   const [showHostControls, setShowHostControls] = useState(false);
   const [mediaError, setMediaError] = useState(null);
   const [showDeviceSettings, setShowDeviceSettings] = useState(false);
@@ -291,22 +291,24 @@ export default function RoomPage() {
   // ─── Media Controls ───
 
   const toggleMute = useCallback(() => {
-    if (localStream) {
+    const stream = localStreamRef.current;
+    if (stream) {
       const newMuted = !isMuted;
-      localStream.getAudioTracks().forEach((t) => (t.enabled = !newMuted));
+      stream.getAudioTracks().forEach((t) => { t.enabled = !newMuted; });
       setIsMuted(newMuted);
       getSocket().emit('participant:toggle-audio', { isMuted: newMuted });
     }
-  }, [localStream, isMuted, setIsMuted]);
+  }, [isMuted, setIsMuted]);
 
   const toggleCamera = useCallback(() => {
-    if (localStream) {
+    const stream = localStreamRef.current;
+    if (stream) {
       const newOff = !isCameraOff;
-      localStream.getVideoTracks().forEach((t) => (t.enabled = !newOff));
+      stream.getVideoTracks().forEach((t) => { t.enabled = !newOff; });
       setIsCameraOff(newOff);
       getSocket().emit('participant:toggle-video', { isCameraOff: newOff });
     }
-  }, [localStream, isCameraOff, setIsCameraOff]);
+  }, [isCameraOff, setIsCameraOff]);
 
   const toggleScreenShare = useCallback(async () => {
     const socket = getSocket();
@@ -427,26 +429,29 @@ export default function RoomPage() {
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left: Main Video + Participants */}
+        {/* Left: Screen share (only when active) + Participants */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Main Video Area */}
-          <div className="flex-1 p-3 pb-0">
-            <MainVideo
-              screenStream={isScreenSharing ? screenStream : remoteScreenStream}
-              isHostSharing={isScreenSharing}
-              screenSharerSocketId={screenSharerSocketId}
-              room={room}
-            />
-          </div>
+          {/* Screen Share Area — only rendered while someone is sharing */}
+          {(isScreenSharing || remoteScreenStream) && (
+            <div className="flex-1 p-3 pb-0">
+              <MainVideo
+                screenStream={isScreenSharing ? screenStream : remoteScreenStream}
+                isHostSharing={isScreenSharing}
+                screenSharerSocketId={screenSharerSocketId}
+                room={room}
+              />
+            </div>
+          )}
 
-          {/* Participant Video Grid */}
-          <div className="px-3 py-2">
+          {/* Participant Video Grid — fills all space when no screen share */}
+          <div className={`${isScreenSharing || remoteScreenStream ? 'px-3 py-2' : 'flex-1 p-3'}`}>
             <ParticipantGrid
               participants={room.participants}
               localStream={localStream}
               remoteStreams={remoteStreams}
               mySocketId={mySocketId}
               isHost={isHost}
+              expanded={!(isScreenSharing || remoteScreenStream)}
             />
           </div>
         </div>
@@ -475,6 +480,7 @@ export default function RoomPage() {
         isCameraOff={isCameraOff}
         isScreenSharing={isScreenSharing}
         isHost={isHost}
+        localStream={localStream}
         onToggleMute={toggleMute}
         onToggleCamera={toggleCamera}
         onToggleScreenShare={toggleScreenShare}

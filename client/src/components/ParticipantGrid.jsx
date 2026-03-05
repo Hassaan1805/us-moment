@@ -52,13 +52,44 @@ const VideoTile = memo(function VideoTile({ stream, nickname, isMuted, isCameraO
   );
 });
 
-export default function ParticipantGrid({ participants, localStream, remoteStreams, mySocketId, isHost }) {
+export default function ParticipantGrid({ participants, localStream, remoteStreams, mySocketId, isHost, expanded }) {
+  if (expanded) {
+    // Full-area centered grid — used when no screen is being shared
+    const count = participants.length;
+    // Pick responsive grid columns based on count
+    const gridCols =
+      count <= 1 ? 'grid-cols-1' :
+      count <= 2 ? 'grid-cols-2' :
+      count <= 4 ? 'grid-cols-2' :
+      'grid-cols-3';
+
+    return (
+      <div className={`grid ${gridCols} gap-3 h-full w-full`}>
+        {participants.map((p) => {
+          const isLocal = p.socketId === mySocketId;
+          const stream = isLocal ? localStream : remoteStreams[p.socketId];
+          return (
+            <VideoTile
+              key={p.socketId}
+              stream={stream}
+              nickname={p.nickname}
+              isMuted={p.isMuted}
+              isCameraOff={p.isCameraOff}
+              isHost={p.isHost}
+              isLocal={isLocal}
+            />
+          );
+        })}
+      </div>
+    );
+  }
+
+  // Horizontal strip — used when screen share is active
   return (
     <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
       {participants.map((p) => {
         const isLocal = p.socketId === mySocketId;
         const stream = isLocal ? localStream : remoteStreams[p.socketId];
-        // Wider tile when camera is active so video is actually visible
         const tileWidth = p.isCameraOff ? 'w-32' : 'w-52';
 
         return (
