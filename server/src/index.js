@@ -8,18 +8,9 @@ const { setupSocketHandlers } = require('./socket');
 const app = express();
 const server = http.createServer(app);
 
-// Accept comma-separated origins e.g. "https://us-moment.vercel.app,http://localhost:5173"
-const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173')
-  .split(',')
-  .map((o) => o.trim().replace(/\/$/, ''))  // strip trailing slash
-  .filter(Boolean);
-
+// Allow all origins (hobby project — no auth cookies/sessions to protect)
 const corsOptions = {
-  origin: (origin, callback) => {
-    // Allow requests with no origin (server-to-server, curl, etc.)
-    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
-    callback(new Error(`CORS blocked: ${origin}`));
-  },
+  origin: true,
   methods: ['GET', 'POST'],
   credentials: true,
 };
@@ -31,7 +22,7 @@ app.use(express.json());
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: Date.now(), origins: allowedOrigins });
+  res.json({ status: 'ok', timestamp: Date.now() });
 });
 
 // Setup socket handlers
@@ -40,5 +31,4 @@ setupSocketHandlers(io);
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`🎬 us-moment server running on port ${PORT}`);
-  console.log(`   Allowed origins: ${allowedOrigins.join(', ')}`);
 });
