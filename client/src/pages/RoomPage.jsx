@@ -255,6 +255,13 @@ export default function RoomPage() {
     if (currentRoom) {
       currentRoom.participants.forEach((p) => {
         if (p.socketId !== socket.id) {
+          const existingPc = peersRef.current[p.socketId];
+          if (existingPc) {
+            // Peer was created before our media loaded — re-offer now that we have tracks
+            existingPc.close();
+            removePeer(p.socketId);
+            delete peersRef.current[p.socketId];
+          }
           createPeerForUser(socket, p.socketId, true);
         }
       });
@@ -444,7 +451,7 @@ export default function RoomPage() {
           )}
 
           {/* Participant Video Grid — fills all space when no screen share */}
-          <div className={`${isScreenSharing || remoteScreenStream ? 'px-3 py-2' : 'flex-1 p-3'}`}>
+          <div className={`${isScreenSharing || remoteScreenStream ? 'px-3 py-2' : 'flex-1 p-3 min-h-0'}`}>
             <ParticipantGrid
               participants={room.participants}
               localStream={localStream}
