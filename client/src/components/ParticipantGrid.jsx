@@ -58,9 +58,11 @@ export default function ParticipantGrid({ participants, localStream, remoteStrea
       {participants.map((p) => {
         const isLocal = p.socketId === mySocketId;
         const stream = isLocal ? localStream : remoteStreams[p.socketId];
+        // Wider tile when camera is active so video is actually visible
+        const tileWidth = p.isCameraOff ? 'w-32' : 'w-52';
 
         return (
-          <div key={p.socketId} className="flex-shrink-0 w-40">
+          <div key={p.socketId} className={`flex-shrink-0 ${tileWidth} transition-all duration-300`}>
             <VideoTile
               stream={stream}
               nickname={p.nickname}

@@ -43,19 +43,17 @@ export function createPeerConnection({
   // Handle incoming remote tracks
   const receivedStreams = new Set();
   pc.ontrack = (event) => {
-    event.streams.forEach((stream) => {
-      if (!receivedStreams.has(stream.id)) {
-        receivedStreams.add(stream.id);
+    const track = event.track;
+    const stream = event.streams[0];
+    if (!stream) return;
 
-        // Determine if this is a screen share based on track count and video resolution
-        // The first stream received is typically the webcam, the second is screen share
-        if (receivedStreams.size === 1) {
-          onRemoteStream?.(targetSocketId, stream);
-        } else {
-          onRemoteScreenStream?.(targetSocketId, stream);
-        }
-      }
-    });
+    // Screen share tracks are tagged with contentHint='detail' by the sender
+    if (track.kind === 'video' && track.contentHint === 'detail') {
+      onRemoteScreenStream?.(targetSocketId, stream);
+    } else if (!receivedStreams.has(stream.id)) {
+      receivedStreams.add(stream.id);
+      onRemoteStream?.(targetSocketId, stream);
+    }
   };
 
   // ICE candidates
@@ -161,6 +159,8 @@ export async function getDisplayMedia() {
         autoGainControl: false,
       },
     });
+    // Tag screen video tracks so receiving peers can distinguish them from webcam
+    stream.getVideoTracks().forEach((t) => { t.contentHint = 'detail'; });
     return stream;
   } catch (err) {
     console.warn('getDisplayMedia failed:', err);

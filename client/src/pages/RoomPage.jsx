@@ -81,8 +81,8 @@ export default function RoomPage() {
   const setupSocketListeners = useCallback((socket) => {
     socket.on('room:user-joined', ({ participant }) => {
       addParticipant(participant);
-      // Create peer connection for new user
-      setTimeout(() => createPeerForUser(socket, participant.socketId), 500);
+      // Don't create a peer here — the joiner always sends us an offer first.
+      // The webrtc:offer handler below creates the peer when the offer arrives.
     });
 
     socket.on('room:user-left', ({ socketId, participants }) => {
@@ -118,10 +118,17 @@ export default function RoomPage() {
     // ─── WebRTC Signaling ───
 
     socket.on('webrtc:offer', async ({ senderSocketId, offer }) => {
-      let pc = peersRef.current[senderSocketId];
-      if (!pc) {
-        pc = createPeerForUser(socket, senderSocketId, false);
+      // Always close any existing peer and create a fresh one.
+      // This is critical for renegotiation (e.g. screen share start/stop)
+      // — the sender already has a new peer connection and sending ICE
+      // candidates for it; the old peer can't match them.
+      const oldPc = peersRef.current[senderSocketId];
+      if (oldPc) {
+        oldPc.close();
+        removePeer(senderSocketId);
+        delete peersRef.current[senderSocketId];
       }
+      const pc = createPeerForUser(socket, senderSocketId, false);
       try {
         await handleOffer(pc, socket, senderSocketId, offer);
       } catch (err) {
@@ -208,23 +215,22 @@ export default function RoomPage() {
     let stream = null;
 
     // 1. Try audio + video
-    {
-      const result = await getUserMedia({ audio: true, video: true });
-      if (result.stream) {
-        stream = result.stream;
-        setIsCameraOff(false);
+    const result = await getUserMedia({ audio: true, video: true });
+    if (result.stream) {
+      stream = result.stream;
+      setIsCameraOff(false);
+      setIsMuted(false);
+    } else {
+      // Always fall back to audio-only (camera may be absent or denied separately)
+      const audioResult = await getUserMedia({ audio: true, video: false });
+      if (audioResult.stream) {
+        stream = audioResult.stream;
+        setIsCameraOff(true);
         setIsMuted(false);
-      } else if (result.error?.name === 'NotAllowedError' || result.error?.name === 'PermissionDeniedError') {
-        // Permissions denied for everything
-        setMediaError('denied');
       } else {
-        // Camera may not exist — retry with audio only
-        const audioResult = await getUserMedia({ audio: true, video: false });
-        if (audioResult.stream) {
-          stream = audioResult.stream;
-          setIsCameraOff(true);
-          setIsMuted(false);
-        } else if (audioResult.error?.name === 'NotAllowedError' || audioResult.error?.name === 'PermissionDeniedError') {
+        // Both failed — check if it was a permission error
+        const err = audioResult.error;
+        if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
           setMediaError('denied');
         } else {
           setMediaError('unavailable');
