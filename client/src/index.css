@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #475569 transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 6px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: #475569;
+    border-radius: 3px;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary-600 hover:bg-primary-700 active:bg-primary-800 text-white font-medium 
+           px-6 py-3 rounded-xl transition-all duration-200 shadow-lg shadow-primary-600/25
+           hover:shadow-primary-600/40 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply bg-surface-700 hover:bg-surface-600 active:bg-surface-500 text-white font-medium
+           px-6 py-3 rounded-xl transition-all duration-200 border border-surface-600;
+  }
+  .btn-danger {
+    @apply bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-medium
+           px-4 py-2 rounded-xl transition-all duration-200;
+  }
+  .btn-icon {
+    @apply w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200
+           hover:scale-105 active:scale-95;
+  }
+  .input-field {
+    @apply w-full bg-surface-800 border border-surface-600 rounded-xl px-4 py-3 text-white
+           placeholder:text-surface-400 focus:outline-none focus:ring-2 focus:ring-primary-500 
+           focus:border-transparent transition-all duration-200;
+  }
+  .glass-panel {
+    @apply bg-surface-900/80 backdrop-blur-xl border border-surface-700/50 rounded-2xl;
+  }
+}
