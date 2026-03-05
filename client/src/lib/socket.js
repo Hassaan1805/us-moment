@@ -8,6 +8,9 @@ export function getSocket() {
   if (!socket) {
     socket = io(SOCKET_URL, {
       autoConnect: false,
+      // Prefer WebSocket but fall back to polling for mobile browsers
+      // that block WebSocket upgrades on certain networks.
+      transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: 10,
       reconnectionDelay: 1000,

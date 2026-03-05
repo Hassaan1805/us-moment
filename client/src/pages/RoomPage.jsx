@@ -48,6 +48,9 @@ export default function RoomPage() {
   const peersRef = useRef({});
   const localStreamRef = useRef(null);
   const screenStreamRef = useRef(null);
+  // Maps socketId -> screen stream ID they're sharing, so ontrack can
+  // route that stream to the screen area instead of the webcam grid.
+  const remoteScreenStreamIdsRef = useRef({});
 
   // Keep refs in sync
   useEffect(() => { peersRef.current = peers; }, [peers]);
@@ -160,9 +163,11 @@ export default function RoomPage() {
 
     // ─── Screen Share ───
 
-    socket.on('stream:started', ({ socketId }) => {
+    socket.on('stream:started', ({ socketId, streamId }) => {
       setScreenSharerSocketId(socketId);
       updateParticipant(socketId, { isScreenSharing: true });
+      // Store the stream ID so createPeerForUser can pass it to ontrack routing
+      if (streamId) remoteScreenStreamIdsRef.current[socketId] = streamId;
     });
 
     socket.on('stream:stopped', ({ socketId }) => {
@@ -170,6 +175,7 @@ export default function RoomPage() {
         setRemoteScreenStream(null);
         setScreenSharerSocketId(null);
       }
+      delete remoteScreenStreamIdsRef.current[socketId];
       updateParticipant(socketId, { isScreenSharing: false });
     });
 
@@ -192,6 +198,7 @@ export default function RoomPage() {
       targetSocketId,
       localStream: localStreamRef.current,
       screenStream: screenStreamRef.current,
+      remoteScreenStreamId: remoteScreenStreamIdsRef.current[targetSocketId] || null,
       onRemoteStream: (sid, stream) => {
         addRemoteStream(sid, stream);
       },
@@ -311,19 +318,22 @@ export default function RoomPage() {
       screenStreamRef.current = null;
       setIsScreenSharing(false);
       socket.emit('stream:stop');
-
-      // Renegotiate with peers — remove screen tracks
-      // For simplicity, we'll recreate peer connections
       renegotiateAllPeers(socket);
     } else {
       // Start sharing
-      const stream = await getDisplayMedia();
+      let stream;
+      try {
+        stream = await getDisplayMedia();
+      } catch (e) {
+        console.warn('getDisplayMedia failed:', e);
+      }
       if (!stream) return;
 
       setScreenStream(stream);
       screenStreamRef.current = stream;
       setIsScreenSharing(true);
-      socket.emit('stream:start');
+      // Send stream ID so peers can route the incoming track correctly
+      socket.emit('stream:start', { streamId: stream.id });
 
       // Handle user stopping via browser UI
       stream.getVideoTracks()[0].onended = () => {
@@ -334,7 +344,6 @@ export default function RoomPage() {
         renegotiateAllPeers(socket);
       };
 
-      // Renegotiate with peers — add screen tracks
       renegotiateAllPeers(socket);
     }
   }, [isScreenSharing, screenStream, setScreenStream, setIsScreenSharing]);

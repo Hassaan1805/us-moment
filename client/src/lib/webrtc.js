@@ -3,12 +3,28 @@
  * Manages peer connections for webcam/mic and screen sharing
  */
 
+// STUN + free TURN servers from OpenRelay (openrelay.metered.ca)
+// TURN is required for mobile (cellular) <-> desktop connections
+// because strict NATs block STUN-only peer-to-peer paths.
 const ICE_SERVERS = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'stun:stun3.l.google.com:19302' },
+    {
+      urls: 'turn:openrelay.metered.ca:80',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
   ],
 };
 
@@ -20,6 +36,7 @@ export function createPeerConnection({
   targetSocketId,
   localStream,
   screenStream,
+  remoteScreenStreamId,   // stream.id of the remote screen share, told via socket
   onRemoteStream,
   onRemoteScreenStream,
   onIceConnectionStateChange,
@@ -40,15 +57,17 @@ export function createPeerConnection({
     });
   }
 
-  // Handle incoming remote tracks
+  // Handle incoming remote tracks.
+  // We identify the screen share stream by the ID signaled via socket
+  // (remoteScreenStreamId). Note: contentHint is a local-only property
+  // and is NOT transmitted over the wire, so we can't rely on it.
   const receivedStreams = new Set();
   pc.ontrack = (event) => {
-    const track = event.track;
     const stream = event.streams[0];
     if (!stream) return;
 
-    // Screen share tracks are tagged with contentHint='detail' by the sender
-    if (track.kind === 'video' && track.contentHint === 'detail') {
+    if (remoteScreenStreamId && stream.id === remoteScreenStreamId) {
+      // This is the remote screen share stream
       onRemoteScreenStream?.(targetSocketId, stream);
     } else if (!receivedStreams.has(stream.id)) {
       receivedStreams.add(stream.id);

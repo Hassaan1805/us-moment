@@ -133,11 +133,11 @@ function setupSocketHandlers(io) {
 
     // ─── Screen Sharing ───
 
-    socket.on('stream:start', () => {
+    socket.on('stream:start', ({ streamId } = {}) => {
       const roomId = socketRoomMap.get(socket.id);
       if (!roomId) return;
       updateParticipant(roomId, socket.id, { isScreenSharing: true });
-      socket.to(roomId).emit('stream:started', { socketId: socket.id });
+      socket.to(roomId).emit('stream:started', { socketId: socket.id, streamId });
     });
 
     socket.on('stream:stop', () => {
